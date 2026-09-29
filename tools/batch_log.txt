@@ -1,0 +1,44 @@
+Generated 200 questions; running against http://127.0.0.1:8000 -> tools/batch_results.jsonl
+
+     2 [EXEC_ERR] Show the file role mapping records for employee EMP00326.
+        Execution failed: UndefinedColumn: column urm.elan does not exist
+LINE 1: ...m JOIN utility.file_role_mapping 
+     8 [EXEC_ERR] Count user training mapping grouped by domain.
+        Execution failed: UndefinedColumn: column tm.domain does not exist
+LINE 1: SELECT tm.domain, COUNT(utm.course_
+  ... 20/200  {'OK': 18, 'PROFILE': 0, 'REFUSED': 0, 'EXEC_ERR': 2, 'REQ_FAIL': 0}
+  ... 40/200  {'OK': 37, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 2, 'REQ_FAIL': 0}
+  ... 60/200  {'OK': 57, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 2, 'REQ_FAIL': 0}
+    66 [EXEC_ERR] Count inventory allotment details grouped by city.
+        Execution failed: UndefinedFunction: operator does not exist: character varying = bigint
+LINE 1: ...JOIN utili
+    71 [EXEC_ERR] List the latest 10 gatepass workflow step ordered by inter_centre_only.
+        Execution failed: UndefinedColumn: column gw.scope_id does not exist
+LINE 1: ...ain_code, gw.seq, gw.gp_role_c
+    78 [EXEC_ERR] Count training master obsolete grouped by training_type.
+        Execution failed: UndefinedTable: relation "training.training_master_obsolete" does not exist
+LINE 1: SELECT t
+  ... 80/200  {'OK': 74, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 5, 'REQ_FAIL': 0}
+  ... 100/200  {'OK': 94, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 5, 'REQ_FAIL': 0}
+   115 [EXEC_ERR] Count disciplines grouped by is_active.
+        Execution failed: UndefinedColumn: column "discipline" does not exist
+LINE 1: SELECT discipline, COUNT(*) AS c
+   117 [EXEC_ERR] Count conference rooms grouped by city.
+        Execution failed: UndefinedColumn: column "conf_city" does not exist
+LINE 1: SELECT conf_city, COUNT(*) AS roo
+  ... 120/200  {'OK': 112, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 7, 'REQ_FAIL': 0}
+   140 [EXEC_ERR] Show the committees records for employee EMP00326.
+        Execution failed: UndefinedColumn: column rg.elan does not exist
+LINE 1: ...em.user_id = rg.user_id JOIN pers.
+  ... 140/200  {'OK': 131, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 8, 'REQ_FAIL': 0}
+  ... 160/200  {'OK': 151, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 8, 'REQ_FAIL': 0}
+   161 [EXEC_ERR] Show the task user mapping records for employee EMP00326.
+        Execution failed: UndefinedFunction: operator does not exist: bigint = character varying
+LINE 1: ... em JOIN u
+  ... 180/200  {'OK': 170, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 9, 'REQ_FAIL': 0}
+   186 [EXEC_ERR] Count education details grouped by type_of_degree.
+        Execution failed: UndefinedFunction: operator does not exist: character varying = bigint
+LINE 1: ...IN utility
+  ... 200/200  {'OK': 189, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 10, 'REQ_FAIL': 0}
+
+===== 190/200 answered (95%) | {'OK': 189, 'PROFILE': 1, 'REFUSED': 0, 'EXEC_ERR': 10, 'REQ_FAIL': 0} =====

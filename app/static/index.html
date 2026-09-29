@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Text &rarr; SQL &middot; nextgendb</title>
+<style>
+  :root { --bg:#0f1420; --panel:#171d2b; --line:#273043; --fg:#e6e9ef; --muted:#8b95a7; --accent:#5b8cff; --ok:#3fb950; --err:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:20px 24px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; } header .sub { color:var(--muted); font-size:13px; margin-top:4px; }
+  main { max-width:1100px; margin:0 auto; padding:24px; }
+  .box { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  textarea { width:100%; min-height:70px; resize:vertical; background:#0c111b; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:12px; font:inherit; }
+  .row { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 18px; font:inherit; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  label.chk { color:var(--muted); font-size:13px; display:flex; gap:6px; align-items:center; }
+  .examples { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+  .examples span { font-size:12.5px; color:var(--accent); cursor:pointer; border:1px solid var(--line); border-radius:20px; padding:4px 12px; }
+  .meta { color:var(--muted); font-size:12.5px; margin:14px 0 6px; }
+  pre { background:#0c111b; border:1px solid var(--line); border-radius:8px; padding:14px; overflow:auto; white-space:pre-wrap; margin:0; }
+  .expl { color:var(--fg); margin:10px 0; }
+  .err { color:var(--err); }
+  table { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; display:block; overflow:auto; max-height:60vh; }
+  th,td { border:1px solid var(--line); padding:6px 10px; text-align:left; white-space:nowrap; }
+  th { position:sticky; top:0; background:#0c111b; }
+  .pill { display:inline-block; background:#0c111b; border:1px solid var(--line); border-radius:20px; padding:2px 10px; font-size:12px; color:var(--muted); margin-right:6px; }
+  #out { margin-top:20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Text &rarr; SQL</h1>
+  <div class="sub">Ask a question in plain English. It becomes a read-only SQL query against <b>nextgendb</b> and runs live.</div>
+</header>
+<main>
+  <div class="box">
+    <textarea id="q" placeholder="e.g. How many active employees are there in each centre?"></textarea>
+    <div class="row">
+      <button id="go">Run</button>
+      <label class="chk"><input type="checkbox" id="exec" checked /> execute query</label>
+      <span id="hstat" class="pill">connecting&hellip;</span>
+    </div>
+    <div class="examples" id="ex"></div>
+  </div>
+  <div id="out"></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const EXAMPLES = [
+  "How many employees are active vs inactive?",
+  "List the 10 most recently joined employees with their designation.",
+  "Count employees by gender.",
+  "Show the latest 20 documents and their status from digitalsig.",
+  "Give me all details of employee EMP00001",
+];
+const exBox = $("#ex");
+EXAMPLES.forEach(t => { const s=document.createElement("span"); s.textContent=t; s.onclick=()=>{$("#q").value=t;}; exBox.appendChild(s); });
+
+fetch("/health").then(r=>r.json()).then(h=>{ $("#hstat").textContent = h.tables+" tables · "+h.model; }).catch(()=>{ $("#hstat").textContent="offline"; });
+
+function esc(v){ return String(v===null?"∅":v).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function kvTable(obj){
+  const keys = Object.keys(obj);
+  return "<table><tbody>"+keys.map(k=>`<tr><th style="text-align:right">${esc(k)}</th><td>${esc(obj[k])}</td></tr>`).join("")+"</tbody></table>";
+}
+function rowsTable(cols, rows){
+  return "<table><thead><tr>"+cols.map(c=>`<th>${esc(c)}</th>`).join("")+"</tr></thead><tbody>"+
+    rows.map(r=>"<tr>"+cols.map(c=>`<td>${esc(r[c])}</td>`).join("")+"</tr>").join("")+"</tbody></table>";
+}
+function renderProfile(d){
+  if(!d.found) return `<div class="meta err">${esc(d.message||"Not found")}</div>`;
+  let h = `<div class="expl">Full profile for employee <b>${esc(d.user_id)}</b> (elan ${esc(d.elan)})</div>`;
+  h += `<div class="meta">${d.tables_with_data} tables with data · searched ${d.tables_searched} linked tables · ${d.exec_ms} ms</div>`;
+  h += `<h3 style="margin:14px 0 6px">Employee record (pers.employee_master)</h3>`;
+  h += kvTable(d.employee);
+  d.sections.forEach(s=>{
+    h += `<h3 style="margin:18px 0 6px">${esc(s.table)} <span class="pill">${s.count} row(s) · by ${esc(s.linked_by)}</span></h3>`;
+    h += rowsTable(s.columns, s.rows);
+  });
+  if(d.sections.length===0) h += '<div class="meta">No related records found in other tables.</div>';
+  return h;
+}
+function renderFallback(fb){
+  let h = `<div class="box" style="margin-top:16px;border-color:#5b8cff">`;
+  h += `<div class="expl">No exact match for <b>${esc(fb.term)}</b> — here is the closest data.</div>`;
+  if(fb.corrected){
+    h += `<div class="meta">✓ Did you mean <b>${esc(fb.corrected.name)}</b>? Showing results for the corrected name (${fb.corrected.row_count} rows).</div>`;
+    h += `<pre>${esc(fb.corrected.sql)}</pre>`;
+    h += rowsTable(fb.corrected.columns, fb.corrected.rows);
+  }
+  if(fb.broadened){
+    h += `<div class="meta" style="margin-top:14px">Broadened search (any matching word) — ${fb.broadened.row_count} rows:</div>`;
+    h += `<pre>${esc(fb.broadened.sql)}</pre>`;
+    h += rowsTable(fb.broadened.columns, fb.broadened.rows);
+  }
+  if(fb.suggestions && fb.suggestions.length){
+    h += `<div class="meta" style="margin-top:14px">Closest names in the database (click to search):</div>`;
+    h += `<div class="examples">`+fb.suggestions.map(s=>`<span onclick="pickName('${esc(s.name).replace(/'/g,"\\'")}','${esc(fb.term).replace(/'/g,"\\'")}')">${esc(s.name)}</span>`).join("")+`</div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+function pickName(name, term){
+  const q = $("#q");
+  q.value = term ? q.value.replace(new RegExp(term,'i'), name) : name;
+  run();
+}
+
+async function run(){
+  const question = $("#q").value.trim();
+  if(!question) return;
+  const out = $("#out");
+  $("#go").disabled = true;
+  out.innerHTML = '<div class="meta">Thinking&hellip;</div>';
+  try{
+    const res = await fetch("/query",{method:"POST",headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({question, execute: $("#exec").checked})});
+    const d = await res.json();
+
+    if(d.mode === "profile"){ out.innerHTML = renderProfile(d); $("#go").disabled=false; return; }
+
+    let html = "";
+    if(d.explanation) html += `<div class="expl">${esc(d.explanation)}</div>`;
+    const timing = [];
+    if(d.gen_ms!=null) timing.push(`generated in ${d.gen_ms} ms`);
+    if(d.exec_ms!=null) timing.push(`executed in ${d.exec_ms} ms`);
+    if(d.row_count!=null) timing.push(`${d.row_count} rows`);
+    html += `<div class="meta">${timing.join(" · ")}</div>`;
+    if(d.sql) html += `<pre>${esc(d.sql)}</pre>`;
+    if(d.error) html += `<div class="meta err">${esc(d.error)}</div>`;
+    if(d.columns && d.rows){
+      html += "<table><thead><tr>"+d.columns.map(c=>`<th>${esc(c)}</th>`).join("")+"</tr></thead><tbody>";
+      html += d.rows.map(r=>"<tr>"+d.columns.map(c=>`<td>${esc(r[c])}</td>`).join("")+"</tr>").join("");
+      html += "</tbody></table>";
+      if(d.rows.length===0) html += '<div class="meta">No rows returned.</div>';
+    }
+    if(d.fallback) html += renderFallback(d.fallback);
+    if(d.sql && !d.error){
+      html += `<div style="margin-top:10px"><button id="teachBtn" style="background:#2ea043">&#128077; Teach this query as correct</button> <span id="teachMsg" class="meta"></span></div>`;
+    }
+    out.innerHTML = html;
+    const tb = document.getElementById("teachBtn");
+    if(tb){ tb.onclick = async () => {
+      tb.disabled = true;
+      try{
+        const r = await fetch("/teach",{method:"POST",headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({question, sql: d.sql})});
+        const j = await r.json();
+        document.getElementById("teachMsg").textContent = j.added
+          ? `✓ Learned! The model now knows this (${j.total} examples).`
+          : `✗ ${j.error||"failed"}`;
+      }catch(e){ document.getElementById("teachMsg").textContent = "✗ "+e.message; }
+    }; }
+  }catch(e){ out.innerHTML = `<div class="meta err">Request failed: ${esc(e.message)}</div>`; }
+  finally{ $("#go").disabled = false; }
+}
+$("#go").onclick = run;
+$("#q").addEventListener("keydown", e=>{ if((e.metaKey||e.ctrlKey)&&e.key==="Enter") run(); });
+</script>
+</body>
+</html>
